@@ -1,19 +1,45 @@
 from robodk import robolink, robomath
 import math
 
+# Scene item names
+FRAME_NAME = "Draw Frame"
+HOME_TARGET_NAME = "Target 1"
+BOARD_OBJECT_NAME = "Whiteboard 250mm"
+DRAWING_BOARD_NAME = "Drawing Board"
+CANVAS_NAME = "Art Canvas"
+PIXEL_REF_NAME = "pixel"
+
+# Robot configuration
+TOOL_PAYLOAD_KG = 0.5
+REAL_ROBOT = True
+DRY_RUN = True
+
 # Motion settings
+APPROACH = 100.0
 PEN_Z_OFFSET = 0.0
 SPEED_HOVER = 200.0
 SPEED_PLUNGE = 10.0
 SPEED_DRAW = 50.0
-APPROACH = 100.0
 
 # Circle settings
 RADIUS = 150.0
 ARC_SEGMENTS = 4
 VISUAL_POINTS_COUNT = 360
 PIXEL_SIZE = 2.0
-TOOL_PAYLOAD_KG = 0.5
+
+# Safer first-pass parameters for real hardware validation
+DRY_RUN_PEN_Z_OFFSET = 5.0
+DRY_RUN_SPEED_HOVER = 100.0
+DRY_RUN_SPEED_PLUNGE = 5.0
+DRY_RUN_SPEED_DRAW = 20.0
+DRY_RUN_RADIUS = 60.0
+
+if REAL_ROBOT and DRY_RUN:
+    PEN_Z_OFFSET = DRY_RUN_PEN_Z_OFFSET
+    SPEED_HOVER = DRY_RUN_SPEED_HOVER
+    SPEED_PLUNGE = DRY_RUN_SPEED_PLUNGE
+    SPEED_DRAW = DRY_RUN_SPEED_DRAW
+    RADIUS = DRY_RUN_RADIUS
 
 
 def circle_xy(center_x, center_y, radius, angle_rad):
@@ -30,8 +56,8 @@ def circle_pose(center_x, center_y, radius, angle_rad, z_offset, tool_orientatio
 RDK = robolink.Robolink()
 robot = RDK.Item("", robolink.ITEM_TYPE_ROBOT)
 tool = robot.getLink(robolink.ITEM_TYPE_TOOL)
-frame = RDK.Item("Draw Frame", robolink.ITEM_TYPE_FRAME)
-home_target = RDK.Item("Target 1", robolink.ITEM_TYPE_TARGET)
+frame = RDK.Item(FRAME_NAME, robolink.ITEM_TYPE_FRAME)
+home_target = RDK.Item(HOME_TARGET_NAME, robolink.ITEM_TYPE_TARGET)
 
 if not robot.Valid() or not frame.Valid() or not home_target.Valid():
     print("Environment error: robot, Draw Frame, or Target 1 was not found.")
@@ -43,29 +69,29 @@ robot.RunInstruction(
 )
 print(f"Payload set to {TOOL_PAYLOAD_KG} kg")
 
-board_draw = RDK.Item("Drawing Board")
+board_draw = RDK.Item(DRAWING_BOARD_NAME)
 if board_draw.Valid() and board_draw.Type() == robolink.ITEM_TYPE_OBJECT:
     board_draw.Delete()
 
-board_250mm = RDK.Item("Whiteboard 250mm")
+board_250mm = RDK.Item(BOARD_OBJECT_NAME)
 if board_250mm.Valid():
     board_250mm.setVisible(False)
     board_250mm.Copy()
     board_draw = frame.Paste()
     board_draw.setVisible(True, False)
-    board_draw.setName("Drawing Board")
+    board_draw.setName(DRAWING_BOARD_NAME)
     board_draw.Scale([2000 / 250, 1000 / 250, 1])
     board_draw.setColor([0, 0, 0, 1])
 
-pixel_ref = RDK.Item("pixel")
+pixel_ref = RDK.Item(PIXEL_REF_NAME)
 
-canvas = RDK.Item("Art Canvas")
+canvas = RDK.Item(CANVAS_NAME)
 if canvas.Valid():
     canvas.Delete()
 if pixel_ref.Valid():
     pixel_ref.Copy()
     canvas = frame.Paste()
-    canvas.setName("Art Canvas")
+    canvas.setName(CANVAS_NAME)
     canvas.setVisible(True, False)
     canvas.setColor([0, 0, 0, 0])
 
@@ -91,6 +117,8 @@ CENTER_Y = orient_frame2tool.Pos()[1]
 orient_frame2tool[0:3, 3] = robomath.Mat([0, 0, 0])
 
 print(f"Drawing a circle with radius {RADIUS} mm...")
+if REAL_ROBOT and DRY_RUN:
+    print("Dry-run mode enabled: testing above the board with reduced speed and radius.")
 
 arc_targets = []
 for segment_idx in range(ARC_SEGMENTS):
