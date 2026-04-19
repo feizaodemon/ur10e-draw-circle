@@ -1,8 +1,10 @@
 # Environments
 .env
 .venv
+.venv_*/
 env/
 venv/
+.tmp/
 
 # Python
 __pycache__/
